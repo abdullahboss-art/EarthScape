@@ -1,0 +1,13 @@
+services:
+  hadoop:
+    build: .
+    container_name: earthscape-hadoop
+    ports:
+      - "9870:9870"   # HDFS NameNode web UI / WebHDFS  (HDFS_URL = http://localhost:9870)
+      - "8088:8088"   # YARN ResourceManager UI (MapReduce jobs)
+      - "9864:9864"   # DataNode UI
+    volumes:
+      - hdfs_data:/data          # HDFS blocks survive restarts
+      - ..:/project              # project root: mapper.py, reducer.py, data/
+volumes:
+  hdfs_data:

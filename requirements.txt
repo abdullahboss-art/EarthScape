@@ -1,0 +1,13 @@
+streamlit>=1.39
+pandas>=2.0
+numpy
+plotly>=5.20
+psutil>=5.9
+reportlab>=4.0
+pymongo>=4.6
+mongomock
+scikit-learn
+requests>=2.31
+cryptography
+
+Authlib>=1.3.2

@@ -1,0 +1,27 @@
+{
+  "app_name": "EarthScape Climate Agency",
+  "timezone": "Asia/Karachi",
+  "date_format": "MM/DD/YYYY",
+  "temp_unit": "Fahrenheit (\u00b0F)",
+  "language": "English",
+  "start_page": "Data Analytics",
+  "email_alerts": false,
+  "notifications": false,
+  "weekly_report": false,
+  "product_updates": false,
+  "digest": "Instant",
+  "severities": [
+    "Warning",
+    "Critical"
+  ],
+  "alert_email": "",
+  "accent": "#19E6A1",
+  "chart_palette": "Forest",
+  "compact": false,
+  "animations": true,
+  "show_banner": true,
+  "session_timeout": "4 hours",
+  "login_alerts": true,
+  "auto_update": true,
+  "updated": "2026-11-13 19:19:42.811000"
+}

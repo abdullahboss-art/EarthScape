@@ -1,0 +1,99 @@
+"""GlobalLandTemperaturesByMajorCity.csv ko EarthScape ke upload format mein badalta hai.
+
+Usage (app.py wale folder mein):
+    python convert_climate_csv.py GlobalLandTemperaturesByMajorCity.csv
+    python convert_climate_csv.py GlobalLandTemperaturesByMajorCity.csv --from-year 1980
+    python convert_climate_csv.py file.csv --no-coords      # coordinates database mein save na karo
+
+Output:  climate_upload.csv  (columns: date, station, temperature)
+         -> isay Data Upload page par upload karein.
+Saath mein har city ke latitude/longitude aur country db.stations mein save ho jate hain,
+taake Climate Map par saare shehar sahi jagah dikhein aur "By country" view kaam kare.
+"""
+import argparse
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+
+def fix_text(x):
+    """'Ã…rhus' jaisa kharab text theek karo (UTF-8 jo cp1252 samajh liya gaya)."""
+    if isinstance(x, str) and ("Ã" in x or "Â" in x):
+        try:
+            return x.encode("cp1252").decode("utf-8")
+        except Exception:
+            return x
+    return x
+
+
+def parse_coord(v):
+    """'57.05N' -> 57.05, '10.33W' -> -10.33"""
+    v = str(v).strip().upper()
+    return (-1 if v[-1] in "SW" else 1) * float(v[:-1])
+
+
+def read_any(path):
+    for enc in ("utf-8", "utf-8-sig", "cp1252", "latin-1"):
+        try:
+            return pd.read_csv(path, encoding=enc)
+        except UnicodeDecodeError:
+            continue
+    raise SystemExit("Could not read the file encoding.")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("csv")
+    ap.add_argument("--from-year", type=int, default=1950, help="is saal se pehle ka data chhod do (default 1950)")
+    ap.add_argument("--out", default="climate_upload.csv")
+    ap.add_argument("--no-coords", action="store_true")
+    a = ap.parse_args()
+
+    df = read_any(a.csv)
+    need = {"dt", "AverageTemperature", "City", "Latitude", "Longitude"}
+    if not need <= set(df.columns):
+        raise SystemExit(f"Missing columns: {sorted(need - set(df.columns))}")
+
+    df["City"] = df["City"].map(fix_text)
+    if "Country" in df.columns:
+        df["Country"] = df["Country"].map(fix_text)
+        many = df.groupby("City")["Country"].nunique()
+        dup = set(many[many > 1].index)
+        df["station"] = [f"{c} ({k})" if c in dup else c for c, k in zip(df["City"], df["Country"])]
+    else:
+        df["station"] = df["City"]
+
+    df["date"] = pd.to_datetime(df["dt"], errors="coerce")
+    df["temperature"] = pd.to_numeric(df["AverageTemperature"], errors="coerce")
+    df = df.dropna(subset=["date", "temperature"])        # khali mahine hata do, jhoota data na banao
+    df = df[df["date"].dt.year >= a.from_year]
+
+    out = df[["date", "station", "temperature"]].sort_values(["station", "date"])
+    out["date"] = out["date"].dt.strftime("%Y-%m-%d")
+    out.to_csv(a.out, index=False)
+    print(f"{len(out):,} rows, {out['station'].nunique()} cities, "
+          f"{out['date'].min()} -> {out['date'].max()}  saved to {a.out}")
+
+    if a.no_coords:
+        return
+    cols = ["station", "Latitude", "Longitude"] + (["Country"] if "Country" in df.columns else [])
+    cities = df.drop_duplicates("station")[cols]
+    try:
+        import analytics
+        db = analytics.get_db()
+        for _, r in cities.iterrows():
+            db.stations.update_one(
+                {"_id": r["station"].strip().lower()},
+                {"$set": {"name": r["station"], "lat": parse_coord(r["Latitude"]), "lon": parse_coord(r["Longitude"]),
+                          **({"country": r["Country"]} if "Country" in r else {})}},
+                upsert=True)
+        print(f"Coordinates + country of {len(cities)} cities saved to db.stations")
+    except Exception as e:
+        print("Could not save coordinates to the database:", e)
+
+
+if __name__ == "__main__":
+    main()

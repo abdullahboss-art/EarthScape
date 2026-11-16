@@ -1,0 +1,11 @@
+.streamlit/secrets.toml
+.streamlit/secrets.toml.bak
+setup_secrets.py
+make_secrets.py
+data/
+__pycache__/
+*.pyc
+*.esbak
+*.key
+.env
+.agents/
